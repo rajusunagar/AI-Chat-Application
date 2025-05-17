@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chat-container {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: 20%;
+            margin-right: 5px;
+        }
+        .assistant-message {
+            background-color: #f1f1f1;
+            margin-right: 20%;
+            margin-left: 5px;
+        }
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message-input {
+            display: flex;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .service-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+        .service-button {
+            padding: 8px 15px;
+            background-color: #f1f1f1;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .service-button.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        .service-info {
+            text-align: center;
+            margin-bottom: 10px;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Chat</h1>
+    
+    <div class="service-selector" id="service-selector">
+        <!-- Service buttons will be added here dynamically -->
+    </div>
+    
+    <div class="service-info">
+        Currently using: <span id="current-service">Loading...</span>
+    </div>
+    
+    <div class="chat-container" id="chat-container"></div>
+    
+    <div class="input-container">
+        <div class="message-input">
+            <input type="text" id="user-input" placeholder="Type your message here..." />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const serviceSelector = document.getElementById('service-selector');
+        const currentServiceSpan = document.getElementById('current-service');
+        
+        let currentService = null;
+        let availableServices = [];
+
+        // Add event listener for Enter key
+        userInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Load available services when page loads
+        window.addEventListener('DOMContentLoaded', loadServices);
+
+        function loadServices() {
+            fetch('/api/chat/services')
+                .then(response => response.json())
+                .then(services => {
+                    availableServices = services;
+                    
+                    // Create buttons for each service
+                    services.forEach(service => {
+                        const button = document.createElement('button');
+                        button.textContent = service;
+                        button.classList.add('service-button');
+                        button.onclick = () => selectService(service);
+                        serviceSelector.appendChild(button);
+                    });
+                    
+                    // Select the first service by default
+                    if (services.length > 0) {
+                        selectService(services[0]);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading services:', error);
+                    currentServiceSpan.textContent = 'Error loading services';
+                });
+        }
+
+        function selectService(service) {
+            currentService = service;
+            currentServiceSpan.textContent = service;
+            
+            // Update active button
+            document.querySelectorAll('.service-button').forEach(button => {
+                if (button.textContent === service) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+            
+            // Add a system message indicating the service change
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.style.textAlign = 'center';
+            messageDiv.style.fontStyle = 'italic';
+            messageDiv.style.color = '#666';
+            messageDiv.textContent = `Switched to ${service}`;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function addMessage(content, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isUser ? 'user-message' : 'assistant-message');
+            messageDiv.textContent = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, true);
+            userInput.value = '';
+
+            // Show loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.classList.add('message', 'assistant-message');
+            loadingDiv.textContent = 'Thinking...';
+            chatContainer.appendChild(loadingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Send message to server with selected service
+            fetch(`/api/chat/simple?service=${currentService}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Remove loading indicator
+                chatContainer.removeChild(loadingDiv);
+                
+                // Add assistant response to chat
+                if (data.choices && data.choices.length > 0) {
+                    const assistantMessage = data.choices[0].message.content;
+                    addMessage(assistantMessage, false);
+                }
+            })
+            .catch(error => {
+                // Remove loading indicator
+                chatContainer.removeChild(loadingDiv);
+                
+                console.error('Error:', error);
+                addMessage('Sorry, there was an error processing your request.', false);
+            });
+        }
+    </script>
+</body>
+</html>
