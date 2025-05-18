@@ -68,20 +68,20 @@
         .service-selector {
             display: flex;
             justify-content: center;
+            align-items: center;
             margin-bottom: 15px;
             gap: 10px;
         }
-        .service-button {
+        .model-dropdown {
             padding: 8px 15px;
-            background-color: #f1f1f1;
-            color: #333;
             border: 1px solid #ccc;
             border-radius: 5px;
+            background-color: #f9f9f9;
+            font-size: 16px;
             cursor: pointer;
         }
-        .service-button.active {
-            background-color: #4CAF50;
-            color: white;
+        .model-dropdown:focus {
+            outline: none;
             border-color: #4CAF50;
         }
         .service-info {
@@ -95,8 +95,11 @@
 <body>
     <h1>AI Chat</h1>
     
-    <div class="service-selector" id="service-selector">
-        <!-- Service buttons will be added here dynamically -->
+    <div class="service-selector">
+        <label for="ai-model-select">Select AI Model: </label>
+        <select id="ai-model-select" class="model-dropdown">
+            <!-- Options will be added here dynamically -->
+        </select>
     </div>
     
     <div class="service-info">
@@ -115,7 +118,7 @@
     <script>
         const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
-        const serviceSelector = document.getElementById('service-selector');
+        const modelSelect = document.getElementById('ai-model-select');
         const currentServiceSpan = document.getElementById('current-service');
         
         let currentService = null;
@@ -128,6 +131,11 @@
             }
         });
 
+        // Add event listener for model selection change
+        modelSelect.addEventListener('change', function() {
+            selectService(this.value);
+        });
+
         // Load available services when page loads
         window.addEventListener('DOMContentLoaded', loadServices);
 
@@ -137,18 +145,18 @@
                 .then(services => {
                     availableServices = services;
                     
-                    // Create buttons for each service
+                    // Create options for each service
                     services.forEach(service => {
-                        const button = document.createElement('button');
-                        button.textContent = service;
-                        button.classList.add('service-button');
-                        button.onclick = () => selectService(service);
-                        serviceSelector.appendChild(button);
+                        const option = document.createElement('option');
+                        option.value = service;
+                        option.textContent = service;
+                        modelSelect.appendChild(option);
                     });
                     
                     // Select the first service by default
                     if (services.length > 0) {
                         selectService(services[0]);
+                        modelSelect.value = services[0];
                     }
                 })
                 .catch(error => {
@@ -160,15 +168,6 @@
         function selectService(service) {
             currentService = service;
             currentServiceSpan.textContent = service;
-            
-            // Update active button
-            document.querySelectorAll('.service-button').forEach(button => {
-                if (button.textContent === service) {
-                    button.classList.add('active');
-                } else {
-                    button.classList.remove('active');
-                }
-            });
             
             // Add a system message indicating the service change
             const messageDiv = document.createElement('div');
